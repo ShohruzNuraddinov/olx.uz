@@ -1,8 +1,25 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.db.models.functions import Coalesce
 
+from user.models import UserModel as User
 from utils.models import BaseModel
 # Create your models here.
+
+
+class Region(BaseModel):
+    title = models.CharField(max_length=255)
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class District(BaseModel):
+    region = models.ForeignKey(
+        Region, on_delete=models.CASCADE, related_name='districts')
+    title = models.CharField(max_length=255)
+
+    def __str__(self):
+        return self.title
 
 
 class Category(BaseModel):
@@ -12,15 +29,17 @@ class Category(BaseModel):
         return self.title
 
 
-class Region(BaseModel):
+class SubCategory(BaseModel):
+    category = models.ForeignKey(
+        Category, on_delete=models.CASCADE, related_name='sub_categories'
+    )
     title = models.CharField(max_length=255)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
 
-class District(BaseModel):
-    region = models.ForeignKey(Region, on_delete=True)
+class Brand(BaseModel):
     title = models.CharField(max_length=255)
 
     def __str__(self):
@@ -37,19 +56,45 @@ class AdsStatus(models.Choices):
     fb = 'F/B'
 
 
-class Ads(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
-    category = models.ForeignKey(Category, on_delete=True)
+class CurrencyChoise(models.Choices):
+    uzs = 'UZS'
+    usd = 'USD'
 
+
+class Ad(BaseModel):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='ads'
+    )
+    title = models.CharField(max_length=255)
+    sub_category = models.ForeignKey(
+        SubCategory, on_delete=models.CASCADE, related_name='ads'
+    )
+    image = models.ImageField(upload_to='ads/', blank=True, null=True)
+
+    brand = models.ForeignKey(
+        Brand, on_delete=models.CASCADE, null=True, blank=True
+    )
     description = models.TextField()
-    district = models.ForeignKey(District, on_delete=models.CASCADE)
     view_count = models.IntegerField(default=0)
+    price = models.IntegerField(default=0)
+
+    district = models.ForeignKey(District, on_delete=models.CASCADE)
 
     status = models.CharField(
-        max_length=255, choices=AdsStatus.choices, default=AdsStatus.new)
+        max_length=255, choices=AdsStatus.choices, default=AdsStatus.new
+    )
     bisnes_status = models.CharField(
-        max_length=255, choices=BisnesStatus.choices, default=BisnesStatus.phisical)
+        max_length=255, choices=BisnesStatus.choices, default=BisnesStatus.phisical
+    )
+    currency = models.CharField(
+        max_length=255, choices=CurrencyChoise.choices, default=CurrencyChoise.uzs
+    )
+
+    is_top = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return self.title
+
+    def update_view_count(self):
+        self.view_count += 1
+        self.save()
